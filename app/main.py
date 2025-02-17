@@ -1,7 +1,11 @@
 from fastapi import FastAPI, HTTPException
-from database import db 
+from config.database import db 
+from routes import app as routes_app
 
 app = FastAPI()
+
+app.include_router(routes_app)
+
 
 @app.get("/")
 async def root():
