@@ -1,18 +1,26 @@
-import os
 from pymongo import MongoClient
-from pymongo.server_api import ServerApi
+import os
 from dotenv import load_dotenv
+from mongoengine import connect
 
 load_dotenv()
 
 MONGO_URI = os.getenv("MONGO_URI")
+DB_NAME = os.getenv("DB_NAME")
 
-client = MongoClient(MONGO_URI, server_api=ServerApi('1'))
-
-db = client["TrabalhoPratico3"] 
+print("Conectando ao MongoDB...")
+print("MONGO_URI:", MONGO_URI)
+print("DB_NAME:", DB_NAME)
 
 try:
-    client.admin.command('ping')
-    print("Conexão com MongoDB Atlas feita com sucesso!")
+    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)  
+    client.server_info()  
+    print("✅ Conexão bem-sucedida com pymongo!")
+    
+    connect(DB_NAME, host=MONGO_URI) 
+    
+    print("✅ Conexão bem-sucedida com mongoengine!")
 except Exception as e:
-    print(f"Erro ao conectar no MongoDB: {e}")
+    print("❌ Erro ao conectar no MongoDB:", e)
+
+db = client[DB_NAME]  

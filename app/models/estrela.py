@@ -1,4 +1,4 @@
-from mongoengine import Document, StringField, FloatField, DateTimeField, ReferenceField, ListField
+from mongoengine import Document, StringField, FloatField, ReferenceField, ListField
 
 class Estrela(Document):
     nome = StringField(required=True)
