@@ -6,7 +6,7 @@ Este projeto utiliza FastAPI para criar uma API que gerencia informações astro
 ## 🚀 Tecnologias Utilizadas
 - **Python**
 - **FastAPI**
-- **MongoDB** (com PyMongo, se aplicável)
+- **MongoDB** 
 
 ## 📁 Estrutura do Projeto
 ```
