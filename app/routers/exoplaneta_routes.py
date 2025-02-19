@@ -69,6 +69,33 @@ async def get_exoplaneta_by_id(exoplaneta_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/{exoplaneta_id}/filtrar", response_model=dict)
+async def get_exoplanetas_by(
+    skip: int = Query(0, ge=0, description="Número de registros a ignorar"),
+    limit: int = Query(10, gt=0, le=100, description="Número máximo de registros a retornar"),
+    nome: str = Query(None, description="Filtrar por nome"),
+    ordenacao: str = Query(None, description="Ordenar por campo (ex: nome)"),
+    ordem_ascendente: bool = Query(True, description="Ordem ascendente (True) ou descendente (False)"),
+):
+    try:
+        query = {}
+        if nome:
+            query["nome"] = {"$regex": nome, "$options": "i"}
+
+        total = Exoplaneta.objects(**query).count()
+
+        if ordenacao:
+            sinal = "" if ordem_ascendente else "-"
+            exoplanetas = Exoplaneta.objects(**query).order_by(sinal + ordenacao).skip(skip).limit(limit)
+        else:
+            exoplanetas = Exoplaneta.objects(**query).skip(skip).limit(limit)
+
+        data = [convert_objectid(exoplaneta.to_mongo().to_dict()) for exoplaneta in exoplanetas]
+        return {"total": total, "count": len(data), "exoplanetas": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.put("/{exoplaneta_id}", response_model=dict)
 async def update_exoplaneta(exoplaneta_id: str, data: dict):
    

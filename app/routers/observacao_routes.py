@@ -9,35 +9,13 @@ def convert_objectid(doc):
     if doc and "_id" in doc:
         doc["_id"] = str(doc["_id"])
     
-    if "estrela" in doc and isinstance(doc["estrela"], ObjectId):
-        doc["estrela"] = str(doc["estrela"])
+    #if "estrela" in doc and isinstance(doc["estrela"], ObjectId):
+    #    doc["estrela"] = str(doc["estrela"])
     
-    if "planetas" in doc and isinstance(doc["planetas"], ObjectId):
-        doc["planetas"] = str(doc["planetas"])
+    #if "planetas" in doc and isinstance(doc["planetas"], ObjectId):
+    #    doc["planetas"] = str(doc["planetas"])
     
     return doc
-
-@router.get("/", response_model=dict)
-async def get_all_observacoes(
-    skip: int = Query(0, ge=0, description="Número de registros a ignorar"),
-    limit: int = Query(10, gt=0, le=100, description="Número máximo de registros a retornar"),
-):
-    total = Observacao.objects.count()  
-    observacoes = Observacao.objects.skip(skip).limit(limit)  
-    data = [convert_objectid(obs.to_mongo().to_dict()) for obs in observacoes]
-
-    return {"quantidade": total, "count": len(data), "observacoes": data}
-
-@router.get("/{observacao_id}", response_model=dict)
-async def get_observacao_by_id(observacao_id: str):
-    if not ObjectId.is_valid(observacao_id):
-        raise HTTPException(status_code=400, detail="ID inválido")
-    
-    observacao = Observacao.objects(id=observacao_id).first()
-    if not observacao:
-        raise HTTPException(status_code=404, detail="Observação não encontrada")
-    
-    return convert_objectid(observacao.to_mongo().to_dict())
 
 @router.post("/", response_model=dict)
 async def create_observacao(data: dict):
@@ -63,6 +41,99 @@ async def create_observacao(data: dict):
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/", response_model=dict)
+async def get_all_observacoes(
+    skip: int = Query(0, ge=0, description="Número de registros a ignorar"),
+    limit: int = Query(10, gt=0, le=100, description="Número máximo de registros a retornar"),
+):
+    total = Observacao.objects.count()  
+    observacoes = Observacao.objects.skip(skip).limit(limit)  
+    data = [convert_objectid(obs.to_mongo().to_dict()) for obs in observacoes]
+    return {"quantidade": total, "count": len(data), "observacoes": data}
+
+@router.get("/{observacao_id}", response_model=dict)
+async def get_observacao_by_id(observacao_id: str):
+    if not ObjectId.is_valid(observacao_id):
+        raise HTTPException(status_code=400, detail="ID inválido")
+    
+    observacao = Observacao.objects(id=observacao_id).first()
+    if not observacao:
+        raise HTTPException(status_code=404, detail="Observação não encontrada")
+    
+    return convert_objectid(observacao.to_mongo().to_dict())
+
+@router.get("/{observacao_id}/filtrar", response_model=dict)
+async def get_observacoes_by(
+    skip: int = Query(0, ge=0, description="Número de registros a ignorar"),
+    limit: int = Query(10, gt=0, le=100, description="Número máximo de registros a retornar"),
+
+    observador: str = Query(None, description="Filtrar por observador"),
+    localizacao: str = Query(None, description="Filtrar por localização"),
+    propriedades: str = Query(None, description="Filtrar por propriedades observadas"),
+    datahora_inicio: str = Query(None, description="Filtrar por data e hora (início)"),
+    datahora_fim: str = Query(None, description="Filtrar por data e hora (fim)"),
+
+    ordenacao: str = Query(None, description="Ordenar por campo (ex: datahora, observador)"),
+    ordem_ascendente: bool = Query(True, description="Ordem ascendente (True) ou descendente (False)"),
+):
+    try:
+        query = {}
+        if observador:
+            query["observador"] = {"$regex": observador, "$options": "i"}
+        if localizacao:
+            query["localizacao"] = {"$regex": localizacao, "$options": "i"}
+        if propriedades:
+            query["propriedades_observadas"] = {"$regex": propriedades, "$options": "i"}
+        if datahora_inicio:
+            try:
+                datahora_inicio = datetime.fromisoformat(datahora_inicio)
+                query["datahora__gte"] = datahora_inicio
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Formato de data e hora inicial inválido. Use 'YYYY-MM-DDTHH:MM:SS'.")
+        if datahora_fim:
+            try:
+                datahora_fim = datetime.fromisoformat(datahora_fim)
+                query["datahora__lte"] = datahora_fim
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Formato de data e hora final inválido. Use 'YYYY-MM-DDTHH:MM:SS'.")
+
+        total = Observacao.objects(**query).count()
+
+        if ordenacao:
+            sinal = "" if ordem_ascendente else "-"
+            observacoes = Observacao.objects(**query).order_by(sinal + ordenacao).skip(skip).limit(limit)
+        else:
+            observacoes = Observacao.objects(**query).skip(skip).limit(limit)
+
+        data = [convert_objectid(obs.to_mongo().to_dict()) for obs in observacoes]
+        return {"quantidade": total, "count": len(data), "observacoes": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/{observacao_id}/consulta_astronomo", response_model=dict)
+async def get_in_astronomo(
+    nome_astronomo: str = Query(None, description="Nome do astrônomo")
+):
+    try:
+       
+        observacoes = Observacao.objects(
+            astronomo__nome__icontains=nome_astronomo   #case-isensitive
+        )
+
+        resultados = []
+        for observacao in observacoes:
+            resultados.append({
+                "datahora": observacao.datahora,
+                "localizacao": observacao.localizacao,
+                "astronomo": observacao.astronomo.nome if observacao.astronomo else None
+            })
+
+        return {"count": len(resultados), "observacoes": resultados}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.put("/{observacao_id}", response_model=dict)
 async def update_observacao(observacao_id: str, data: dict):
