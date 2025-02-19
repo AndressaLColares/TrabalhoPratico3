@@ -6,15 +6,16 @@ from bson import ObjectId
 router = APIRouter()
 
 def convert_objectid(doc):
-    if doc and "_id" in doc:
-        doc["_id"] = str(doc["_id"])
-    
-    #if "estrela" in doc and isinstance(doc["estrela"], ObjectId):
-    #    doc["estrela"] = str(doc["estrela"])
-    
-    #if "planetas" in doc and isinstance(doc["planetas"], ObjectId):
-    #    doc["planetas"] = str(doc["planetas"])
-    
+    if isinstance(doc, dict):
+        for key, value in doc.items():
+            if isinstance(value, ObjectId):
+                doc[key] = str(value)
+            elif isinstance(value, dict):
+                convert_objectid(value)
+            elif isinstance(value, list):
+                doc[key] = [convert_objectid(item) if isinstance(item, (dict, list)) else str(item) if isinstance(item, ObjectId) else item for item in value]
+    elif isinstance(doc, list):
+        doc = [convert_objectid(item) if isinstance(item, (dict, list)) else str(item) if isinstance(item, ObjectId) else item for item in doc]
     return doc
 
 @router.post("/", response_model=dict)
@@ -116,11 +117,7 @@ async def get_in_astronomo(
     nome_astronomo: str = Query(None, description="Nome do astrônomo")
 ):
     try:
-       
-        observacoes = Observacao.objects(
-            astronomo__nome__icontains=nome_astronomo   #case-isensitive
-        )
-
+        observacoes = Observacao.objects(astronomo__nome__icontains=nome_astronomo)  # Case-insensitive
         resultados = []
         for observacao in observacoes:
             resultados.append({
@@ -133,7 +130,6 @@ async def get_in_astronomo(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.put("/{observacao_id}", response_model=dict)
 async def update_observacao(observacao_id: str, data: dict):
