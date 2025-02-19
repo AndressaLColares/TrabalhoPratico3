@@ -22,6 +22,7 @@ TRABALHOPRATICO3/
 │-- .env
 │-- .gitignore
 │-- README.md
+│-- Relatório do Trabalho Prático 3
 ```
 
 ## ⚙️ Configuração do Banco de Dados
