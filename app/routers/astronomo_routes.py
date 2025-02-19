@@ -35,9 +35,9 @@ async def get_all_astronomo(
     limit: int = Query(10, gt=0, le=100, description="Número máximo de registros a retornar"),
 ):
     total = Astronomo.objects.count()  
-    estrelas = Astronomo.objects.skip(skip).limit(limit)  
-    data = [convert_objectid(estrela.to_mongo().to_dict()) for estrela in estrelas]
-    return {"quantidade": total, "count": len(data), "estrelas": data}
+    astronomos = Astronomo.objects.skip(skip).limit(limit)  
+    data = [convert_objectid(astronomo.to_mongo().to_dict()) for astronomo in astronomos]
+    return {"quantidade": total, "count": len(data), "astronomos": data}
 
 @router.get("/{astronomo_id}", response_model=dict)
 async def get_astronomo_by_id(astronomo_id: str):
@@ -49,6 +49,51 @@ async def get_astronomo_by_id(astronomo_id: str):
         raise HTTPException(status_code=404, detail="Astrônomo não encontrado")
     
     return convert_objectid(astronomo.to_mongo().to_dict())
+
+@router.get("/filtrar/{astronomo_id}", response_model=dict)
+async def get_astronomo_by(
+    skip: int = Query(0, ge=0, description="Número de registros a ignorar"),
+    limit: int = Query(10, gt=0, le=100, description="Número máximo de registros a retornar"),
+    nome: str = Query(None, description="Filtrar por nome"),
+    area_estudo: str = Query(None, description="Filtrar por área de estudo"),
+    ordenacao: str = Query(None, description="Ordenar por campo (ex: nome, area_estudo)"),
+    ordem_ascendente: bool = Query(True, description="Ordem ascendente (True) ou descendente (False)"),
+):
+    query = {}
+    if nome:
+        query["nome"] = {"$regex": nome, "$options": "i"}  # Busca por texto parcial (case-insensitive)
+    if area_estudo:
+        query["area_estudo"] = {"$regex": area_estudo, "$options": "i"}
+
+    total = Astronomo.objects(**query).count()
+
+    # Ordenação
+    if ordenacao:
+        sinal = "" if ordem_ascendente else "-" 
+        astronomos = Astronomo.objects(**query).order_by(sinal + ordenacao).skip(skip).limit(limit)
+    else:  
+        astronomos = Astronomo.objects(**query).skip(skip).limit(limit)
+
+    data = [convert_objectid(astronomo.to_mongo().to_dict()) for astronomo in astronomos]
+    return {"quantidade": total, "count": len(data), "astronomos": data}
+@router.get("/{astronomo_id}/observacoes", response_model=dict)
+async def get_observacoes_by_astronomo(astronomo_id: str):
+    if not ObjectId.is_valid(astronomo_id):
+        raise HTTPException(status_code=400, detail="ID inválido")
+
+    observacoes = Observacao.objects(astronomo=astronomo_id)
+    data = [convert_objectid(observacao.to_mongo().to_dict()) for observacao in observacoes]
+    return {"count": len(data), "observacoes": data}
+
+    
+@router.get("{astronomo_id}/consulta_observacao", response_model=dict)
+async def get_in_observacao(content: str):
+
+    astronomos = Astronomo.objects(observacoes__propriedades_observadas__icontains=content)
+
+    data = [convert_objectid(astronomo.to_mongo().to_dict()) for astronomo in astronomos]
+    return {"count": len(data), "astronomos": data}
+
 
 @router.put("/{astronomo_id}", response_model=dict)
 async def update_astronomo(astronomo_id: str, data: dict):
